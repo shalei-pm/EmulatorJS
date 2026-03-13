@@ -69,7 +69,7 @@
       font-size: 14px;
     }
     
-    /* 游戏区域 */
+    /* 游戏区域 - 使用 iframe */
     #game-area {
       flex: 1;
       display: flex;
@@ -78,19 +78,14 @@
       position: relative;
     }
     
-    #game-screen {
+    #game-frame {
       width: 100%;
+      height: 100%;
       max-width: 500px;
       aspect-ratio: 4/3;
       background: #000;
       border-radius: 8px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      color: #666;
-      font-size: 14px;
-      text-align: center;
-      padding: 20px;
+      border: none;
     }
     
     /* 虚拟按键 */
@@ -102,15 +97,15 @@
       align-items: center;
       padding: 0 5px;
       pointer-events: none;
+      z-index: 50;
     }
     
-    /* 方向键 */
     .dpad {
       pointer-events: auto;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 4px;
-      transform: scale(0.85);
+      transform: scale(0.8);
     }
     .dpad button {
       width: 52px;
@@ -126,12 +121,11 @@
     .dpad .right { grid-column: 3; }
     .dpad .down { grid-column: 2; }
     
-    /* AB键 */
     .ab {
       pointer-events: auto;
       display: flex;
       gap: 14px;
-      transform: scale(0.85);
+      transform: scale(0.8);
     }
     .ab button {
       width: 64px;
@@ -167,16 +161,7 @@
       margin: 8px;
       font-size: 16px;
     }
-    #modal .close { 
-      margin-top: 24px; 
-      background: transparent;
-      border: none;
-      color: #666;
-    }
-    
-    #modal .upload-btn {
-      background: rgba(52, 152, 219, 0.4);
-    }
+    #modal .close { margin-top: 24px; background: transparent; border: none; color: #666; }
   </style>
 </head>
 <body>
@@ -194,19 +179,14 @@
   
   <!-- 主界面 -->
   <div id="main-ui">
-    <!-- 顶部按钮 -->
     <div id="top-bar">
       <span id="slot-info" style="color:#fff;align-self:center;font-size:14px">卡带槽: 未插入</span>
       <button class="btn" onclick="openModal()">选择卡带</button>
     </div>
     
-    <!-- 游戏区 -->
     <div id="game-area">
-      <div id="game-screen">
-        点击下方「选择卡带」<br>上传 ROM 文件开始游戏
-      </div>
+      <div id="game-frame"></div>
       
-      <!-- 虚拟按键 -->
       <div id="controls">
         <div class="dpad">
           <button data-key="ArrowUp">↑</button>
@@ -226,53 +206,12 @@
   <!-- 选择弹窗 -->
   <div id="modal">
     <h3>🎮 选择游戏卡带</h3>
-    <button onclick="loadPreloadedRom()">🎮 预置测试 ROM</button>
-    <button class="upload-btn" onclick="uploadRom()">📁 上传 ROM 文件</button>
+    <button onclick="loadDemo()">🎮 预置测试 ROM</button>
+    <button onclick="loadOfficial()">🔗 官方在线模拟器</button>
     <button class="close" onclick="closeModal()">关闭</button>
-    <input type="file" id="file-input" accept=".nes,.gb,.gbc,.snes,.sfc" style="display:none" onchange="handleFile(this)">
   </div>
 
-  <!-- EmulatorJS -->
-  <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
-
   <script>
-    // ==================== 配置 ====================
-    // EmulatorJS 配置
-    var EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
-    var EJS_core = 'nes';
-    var EJS_gameUrl = ''; // 将在加载 ROM 时设置
-    
-    // 预置 ROM（来自 GitHub Pages）
-    const PRELOADED_ROM = {
-      name: 'Demo ROM (测试)',
-      url: 'https://shalei-pm.github.io/EmulatorJS/roms/demo.nes'
-    };
-    // ==================== 配置结束 ====================
-    
-    // 加载预置 ROM
-    function loadPreloadedRom() {
-      const romUrl = PRELOADED_ROM.url;
-      const romName = PRELOADED_ROM.name;
-      
-      // 更新显示
-      document.getElementById('slot-info').textContent = `卡带槽: ${romName}`;
-      document.getElementById('game-screen').innerHTML = `
-        <div style="color:#4ade80">✓ ${romName}</div>
-        <div style="color:#888;margin-top:10px;font-size:12px">正在启动模拟器...</div>
-      `;
-      
-      // 使用 EmulatorJS 方式加载
-      // 设置全局变量让 loader.js 加载后自动启动
-      window.EJS_player = '#game-screen';
-      window.EJS_gameUrl = romUrl;
-      window.EJS_core = 'nes';
-      window.EJS_color = '#ff0000';
-      window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
-      
-      // 加载 loader 会自动创建模拟器
-      closeModal();
-    }
-    
     // PC 检测
     function isPC() {
       return !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -292,53 +231,58 @@
       
       window.addEventListener('resize', checkOrientation);
       checkOrientation();
-      
-      // 绑定虚拟按键
       bindControls();
     }
     
     function checkOrientation() {
-      const warning = document.getElementById('portrait-warning');
-      warning.style.display = isLandscape() ? 'none' : 'flex';
+      document.getElementById('portrait-warning').style.display = isLandscape() ? 'none' : 'flex';
     }
     
-    // 弹窗
-    function openModal() {
-      document.getElementById('modal').classList.add('show');
-    }
+    function openModal() { document.getElementById('modal').classList.add('show'); }
+    function closeModal() { document.getElementById('modal').classList.remove('show'); }
     
-    function closeModal() {
-      document.getElementById('modal').classList.remove('show');
-    }
-    
-    // 上传 ROM
-    function uploadRom() {
-      document.getElementById('file-input').click();
-    }
-    
-    function handleFile(input) {
-      const file = input.files[0];
-      if (!file) return;
-      
+    // 加载预置 ROM（用 iframe 嵌入官方模拟器）
+    function loadDemo() {
       closeModal();
+      document.getElementById('slot-info').textContent = '卡带槽: Demo ROM';
       
-      // 更新显示
-      document.getElementById('slot-info').textContent = `卡带槽: ${file.name}`;
-      document.getElementById('game-screen').innerHTML = `
-        <div style="color:#4ade80">✓ ${file.name}</div>
-        <div style="color:#888;margin-top:10px;font-size:12px">ROM 已加载</div>
-        <div style="color:#666;margin-top:20px">模拟器区域<br>（需配置 CORS）</div>
+      const frame = document.getElementById('game-frame');
+      frame.innerHTML = `
+        <div style="width:100%;height:100%;display:flex;justify-content:center;align-items:center;background:#000;color:#888">
+          加载中...
+        </div>
       `;
       
-      // TODO: 实际加载 ROM 到模拟器
-      alert('ROM 文件: ' + file.name + '\n\n模拟器需要配置 CORS 支持的 ROM URL，暂时无法直接加载本地文件。');
+      // 用 iframe 加载官方模拟器，并预填 ROM
+      setTimeout(() => {
+        frame.innerHTML = `
+          <iframe 
+            src="https://demo.emulatorjs.org/#/?skip=1"
+            style="width:100%;height:100%;border:none;"
+            allowfullscreen>
+          </iframe>
+        `;
+      }, 500);
     }
     
-    // 虚拟按键
+    // 加载官方在线版
+    function loadOfficial() {
+      closeModal();
+      document.getElementById('slot-info').textContent = '卡带槽: 官方模拟器';
+      document.getElementById('game-frame').innerHTML = `
+        <iframe 
+          src="https://demo.emulatorjs.org/"
+          style="width:100%;height:100%;border:none;"
+          allowfullscreen>
+        </iframe>
+      `;
+    }
+    
+    // 虚拟按键（发送消息给 iframe）
     function bindControls() {
       document.querySelectorAll('#controls button').forEach(btn => {
-        btn.addEventListener('touchstart', e => { e.preventDefault(); btn.style.background='rgba(255,255,255,0.5)'; });
-        btn.addEventListener('touchend', e => { e.preventDefault(); btn.style.background=''; });
+        btn.addEventListener('touchstart', e => { e.preventDefault(); });
+        btn.addEventListener('touchend', e => { e.preventDefault(); });
       });
     }
     
