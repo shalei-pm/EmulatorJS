@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+  <title>移动端复古游戏机</title>
+  <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { 
+      width: 100%; 
+      height: 100%; 
+      overflow: hidden;
+      background: #1a1a1a;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    
+    /* PC 提示 */
+    #pc-warning {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #1a1a1a;
+      color: #fff;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      z-index: 9999;
+      text-align: center;
+      padding: 20px;
+    }
+    #pc-warning h2 { color: #ff6b6b; margin-bottom: 16px; }
+    #pc-warning p { color: #888; font-size: 14px; }
+    
+    /* 横屏提示 */
+    #portrait-warning {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.9);
+      color: #fff;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      z-index: 9998;
+    }
+    #portrait-warning .icon { font-size: 48px; margin-bottom: 16px; }
+    #portrait-warning .text { font-size: 18px; color: #aaa; }
+    
+    /* 主容器 */
+    #game-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 10px;
+    }
+    
+    /* 悬浮按钮层 */
+    #overlay-buttons {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+    #overlay-buttons .btn {
+      pointer-events: auto;
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    #overlay-buttons.hidden { display: none; }
+    
+    /* 模拟器显示区域 */
+    #emulator-wrapper {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+    #game {
+      max-width: 100%;
+      max-height: 100%;
+      aspect-ratio: 4/3;
+      background: #000;
+      border-radius: 8px;
+    }
+    
+    /* 虚拟按键层 */
+    #controls-layer {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 5px;
+      pointer-events: none;
+      z-index: 50;
+    }
+    
+    /* 方向键 - 左侧 */
+    .dpad {
+      pointer-events: auto;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      transform: scale(0.8);
+    }
+    .dpad button {
+      width: 50px;
+      height: 50px;
+      background: rgba(255,255,255,0.2);
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .dpad button:active { background: rgba(255,255,255,0.4); }
+    .dpad .up { grid-column: 2; }
+    .dpad .left { grid-column: 1; }
+    .dpad .center { grid-column: 2; }
+    .dpad .right { grid-column: 3; }
+    .dpad .down { grid-column: 2; }
+    
+    /* AB键 - 右侧 */
+    .ab-buttons {
+      pointer-events: auto;
+      display: flex;
+      gap: 12px;
+      transform: scale(0.8);
+    }
+    .ab-buttons button {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      border: none;
+      font-size: 24px;
+      font-weight: bold;
+    }
+    .ab-buttons .a-btn {
+      background: #e74c3c;
+      margin-top: 30px;
+    }
+    .ab-buttons .b-btn {
+      background: #3498db;
+    }
+    .ab-buttons button:active { transform: scale(0.95); }
+    
+    /* ROM 选择弹窗 */
+    #rom-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.9);
+      z-index: 10000;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+    #rom-modal.show { display: flex; }
+    #rom-modal h3 { color: #fff; margin-bottom: 20px; }
+    #rom-modal .rom-list { display: flex; flex-direction: column; gap: 12px; }
+    #rom-modal button {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: #fff;
+      padding: 16px 32px;
+      border-radius: 12px;
+      font-size: 16px;
+      min-width: 200px;
+    }
+    #rom-modal button:active { background: rgba(255,255,255,0.3); }
+    #rom-modal .close-btn {
+      margin-top: 24px;
+      background: transparent;
+      border: none;
+      color: #666;
+      font-size: 14px;
+    }
+    
+    /* 加载提示 */
+    #loading-tip {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      font-size: 14px;
+      background: rgba(0,0,0,0.7);
+      padding: 12px 24px;
+      border-radius: 8px;
+      display: none;
+    }
+    #loading-tip.show { display: block; }
+  </style>
+</head>
+<body>
+  <!-- PC 警告 -->
+  <div id="pc-warning">
+    <h2>📱 请使用手机打开</h2>
+    <p>本页面专为移动设备设计</p>
+  </div>
+  
+  <!-- 横屏警告 -->
+  <div id="portrait-warning">
+    <div class="icon">↻</div>
+    <div class="text">请横屏后游玩</div>
+  </div>
+  
+  <!-- 主界面 -->
+  <div id="game-container">
+    <!-- 悬浮按钮 -->
+    <div id="overlay-buttons">
+      <button class="btn" id="cartridge-btn" onclick="showRomList()">卡带槽: 未插入</button>
+      <button class="btn" id="select-btn" onclick="showRomList()">选择卡带</button>
+    </div>
+    
+    <!-- 模拟器 -->
+    <div id="emulator-wrapper">
+      <div id="game" data-ejs-game=""></div>
+      <div id="loading-tip">加载中...</div>
+    </div>
+    
+    <!-- 虚拟按键 -->
+    <div id="controls-layer">
+      <div class="dpad">
+        <button class="up" data-key="ArrowUp">↑</button>
+        <button class="left" data-key="ArrowLeft">←</button>
+        <button class="center"></button>
+        <button class="right" data-key="ArrowRight">→</button>
+        <button class="down" data-key="ArrowDown">↓</button>
+      </div>
+      <div class="ab-buttons">
+        <button class="b-btn" data-key="KeyB">B</button>
+        <button class="a-btn" data-key="KeyA">A</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- ROM 选择弹窗 -->
+  <div id="rom-modal">
+    <h3>🎮 选择游戏卡带</h3>
+    <div class="rom-list" id="rom-list"></div>
+    <button class="close-btn" onclick="closeRomList()">关闭</button>
+  </div>
+
+  <script>
+    // ROM 列表
+    const romList = [
+      {
+        id: 'tetris',
+        name: '俄罗斯方块 (Tetris)',
+        url: 'https://cdn.emulatorjs.org/stable/roms/nes/tetris.nes',
+        system: 'NES'
+      }
+    ];
+    
+    let currentRom = null;
+    let emulator = null;
+    
+    // 1. 检测 PC
+    function isPC() {
+      const ua = navigator.userAgent.toLowerCase();
+      return !/android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
+    }
+    
+    // 2. 检测横屏
+    function isLandscape() {
+      return window.innerWidth > window.innerHeight;
+    }
+    
+    function checkOrientation() {
+      const portraitWarning = document.getElementById('portrait-warning');
+      if (isLandscape()) {
+        portraitWarning.style.display = 'none';
+      } else {
+        portraitWarning.style.display = 'flex';
+      }
+    }
+    
+    // 3. 初始化
+    function init() {
+      // PC 检测
+      if (isPC()) {
+        document.getElementById('pc-warning').style.display = 'flex';
+        document.getElementById('game-container').style.display = 'none';
+        return;
+      }
+      
+      // 横屏检测
+      window.addEventListener('resize', checkOrientation);
+      window.addEventListener('orientationchange', checkOrientation);
+      checkOrientation();
+      
+      // 渲染 ROM 列表
+      renderRomList();
+      
+      // 绑定虚拟按键
+      bindControls();
+    }
+    
+    // 渲染 ROM 列表
+    function renderRomList() {
+      const list = document.getElementById('rom-list');
+      list.innerHTML = romList.map(rom => 
+        `<button onclick="loadRom('${rom.id}')">${rom.name}</button>`
+      ).join('');
+    }
+    
+    // 显示 ROM 列表
+    function showRomList() {
+      document.getElementById('rom-modal').classList.add('show');
+    }
+    
+    // 关闭 ROM 列表
+    function closeRomList() {
+      document.getElementById('rom-modal').classList.remove('show');
+    }
+    
+    // 加载 ROM
+    function loadRom(romId) {
+      const rom = romList.find(r => r.id === romId);
+      if (!rom) return;
+      
+      currentRom = rom;
+      closeRomList();
+      
+      // 更新按钮
+      document.getElementById('cartridge-btn').textContent = `卡带槽: ${rom.name}`;
+      document.getElementById('select-btn').textContent = '更换卡带';
+      
+      // 隐藏按钮
+      document.getElementById('overlay-buttons').classList.add('hidden');
+      
+      // 显示加载提示
+      document.getElementById('loading-tip').classList.add('show');
+      
+      // 加载游戏
+      loadGame(rom);
+    }
+    
+    // 加载游戏
+    function loadGame(rom) {
+      const gameContainer = document.getElementById('game');
+      gameContainer.setAttribute('data-ejs-game', rom.url);
+      
+      EJS_player = '#game';
+      EJS_core = 'nes';
+      EJS_gameUrl = rom.url;
+      EJS_color = '#ff0000';
+      EJS_start();
+      
+      // 隐藏加载提示
+      setTimeout(() => {
+        document.getElementById('loading-tip').classList.remove('show');
+      }, 2000);
+    }
+    
+    // 绑定虚拟按键
+    function bindControls() {
+      document.querySelectorAll('#controls-layer button').forEach(btn => {
+        // 触摸事件
+        btn.addEventListener('touchstart', (e) => {
+          e.preventDefault();
+          simulateKey(btn.dataset.key, true);
+        });
+        btn.addEventListener('touchend', (e) => {
+          e.preventDefault();
+          simulateKey(btn.dataset.key, false);
+        });
+        
+        // 鼠标事件（调试用）
+        btn.addEventListener('mousedown', () => simulateKey(btn.dataset.key, true));
+        btn.addEventListener('mouseup', () => simulateKey(btn.dataset.key, false));
+        btn.addEventListener('mouseleave', () => simulateKey(btn.dataset.key, false));
+      });
+    }
+    
+    // 模拟按键
+    function simulateKey(key, pressed) {
+      if (!window.EJS) return;
+      
+      const event = new KeyboardEvent(pressed ? 'keydown' : 'keyup', {
+        key: key,
+        code: key,
+        bubbles: true
+      });
+      document.dispatchEvent(event);
+    }
+    
+    // 启动
+    init();
+  </script>
+</body>
+</html>
