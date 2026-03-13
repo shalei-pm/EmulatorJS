@@ -251,29 +251,26 @@
     
     // 加载预置 ROM
     function loadPreloadedRom() {
-      const gameUrl = PRELOADED_ROM.url;
+      const romUrl = PRELOADED_ROM.url;
+      const romName = PRELOADED_ROM.name;
       
       // 更新显示
-      document.getElementById('slot-info').textContent = `卡带槽: ${PRELOADED_ROM.name}`;
+      document.getElementById('slot-info').textContent = `卡带槽: ${romName}`;
       document.getElementById('game-screen').innerHTML = `
-        <div style="color:#4ade80">✓ ${PRELOADED_ROM.name}</div>
-        <div style="color:#888;margin-top:10px;font-size:12px">加载中...</div>
+        <div style="color:#4ade80">✓ ${romName}</div>
+        <div style="color:#888;margin-top:10px;font-size:12px">正在启动模拟器...</div>
       `;
       
-      // 配置 EmulatorJS
-      window.EJS_gameUrl = gameUrl;
+      // 使用 EmulatorJS 方式加载
+      // 设置全局变量让 loader.js 加载后自动启动
+      window.EJS_player = '#game-screen';
+      window.EJS_gameUrl = romUrl;
+      window.EJS_core = 'nes';
+      window.EJS_color = '#ff0000';
+      window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
       
-      // 加载模拟器（需要在 loader.js 之后）
-      if (typeof EJS_start === 'function') {
-        EJS_start();
-      } else {
-        // 等待 loader 加载完成
-        setTimeout(() => {
-          if (typeof EJS_start === 'function') {
-            EJS_start();
-          }
-        }, 1000);
-      }
+      // 加载 loader 会自动创建模拟器
+      closeModal();
     }
     
     // PC 检测
