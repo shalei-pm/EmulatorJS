@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
   <title>移动端复古游戏机</title>
+  <script>
+    // 配置 EmulatorJS CDN 路径
+    var EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+  </script>
   <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -263,18 +267,14 @@
   </div>
 
   <script>
-    // ROM 列表
+    // ROM 列表 - 使用 EmulatorJS 官方 demo 的 ROM（需要 CORS 允许）
     const romList = [
-      {
-        id: 'tetris',
-        name: '俄罗斯方块 (Tetris)',
-        url: 'https://cdn.emulatorjs.org/stable/roms/nes/tetris.nes',
-        system: 'NES'
-      }
+      // 这里放 ROM URL，需要支持 CORS
+      // 目前先不加载 ROM，用户可以上传自己的 ROM 测试
     ];
     
-    let currentRom = null;
-    let emulator = null;
+    // 模拟加载游戏（演示用）
+    let emulatorReady = false;
     
     // 1. 检测 PC
     function isPC() {
@@ -359,19 +359,28 @@
     
     // 加载游戏
     function loadGame(rom) {
-      const gameContainer = document.getElementById('game');
-      gameContainer.setAttribute('data-ejs-game', rom.url);
+      // 显示加载提示
+      document.getElementById('loading-tip').classList.add('show');
       
-      EJS_player = '#game';
-      EJS_core = 'nes';
-      EJS_gameUrl = rom.url;
-      EJS_color = '#ff0000';
-      EJS_start();
+      // 配置 EmulatorJS
+      const config = {
+        core: 'nes',
+        gameUrl: rom.url,
+        color: '#ff0000',
+        pathToData: 'https://cdn.emulatorjs.org/stable/data/',
+      };
       
-      // 隐藏加载提示
-      setTimeout(() => {
+      // 创建模拟器实例
+      if (window.EJS_emulator) {
+        window.EJS_emulator.destroy();
+      }
+      
+      window.EJS_emulator = new EmulatorJS(document.getElementById('game'), config);
+      
+      // 模拟器就绪后隐藏加载提示
+      window.EJS_emulator.on('ready', () => {
         document.getElementById('loading-tip').classList.remove('show');
-      }, 2000);
+      });
     }
     
     // 绑定虚拟按键
